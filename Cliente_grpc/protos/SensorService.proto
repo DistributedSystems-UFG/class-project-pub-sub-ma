@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.iotservice";
+option java_outer_classname = "IoTServiceProto";
+option objc_class_prefix = "TEMP";
+
+package sensor_service;
+
+service SensorService {
+
+  rpc ListarDispositivos (EmptyMessage) returns (ListaDispositivos) {}
+  
+  rpc ListarLeiturasSensores (Parametros) returns (ListaDados) {}
+
+  rpc ConsultarUltimaLeituraSensor (Parametros) returns (Dado) {}
+  
+  rpc AcionarLed (LedStatus) returns (LedStatus) {}
+
+  rpc ListarLeds (LedStatus) returns (ListaLedStatus) {}
+
+}
+
+message Dispositivo {
+  string nomeDispositivo = 1;
+  string localizacao = 2;
+  uint32 tipoDispositivo = 3;
+}
+
+message ListaDispositivos {
+  repeated Dispositivo dispositivos = 1;
+}
+
+message Parametros {
+	string localizacao = 1;
+	optional string data = 2;
+	optional string nomeDispositivo = 3;
+}
+
+message Dado {
+  uint32 id = 1;
+  string data = 2;
+  string localizacao = 3;
+  string nomeDispositivo = 4;
+  uint32 tipoDispositivo = 5;
+  float valor = 6;
+}
+
+message ListaDados {
+	repeated Dado dados = 1;
+}
+
+message LedStatus {
+  optional uint32 estado = 1;
+  optional string nomeDispositivo = 2;
+  string localizacao = 3;
+}
+
+
+message ListaLedStatus {
+	repeated LedStatus status = 1;
+}
+
+message EmptyMessage{}
+
