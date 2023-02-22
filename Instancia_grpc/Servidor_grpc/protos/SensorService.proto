@@ -19,6 +19,8 @@ service SensorService {
 
   rpc ListarLeds (LedStatus) returns (ListaLedStatus) {}
 
+  rpc AutenticarUsuario (ParamLogin) returns (Sessao) {}
+
 }
 
 message Dispositivo {
@@ -63,3 +65,12 @@ message ListaLedStatus {
 
 message EmptyMessage{}
 
+message ParamLogin{
+  string usuario = 1;
+  string senha = 2;
+}
+
+message Sessao {
+  string token = 1;
+  string funcionalidade = 2;
+}

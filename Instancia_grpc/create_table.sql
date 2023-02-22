@@ -59,3 +59,14 @@ CREATE TABLE DadosSensores (
 	PRIMARY KEY (id),
 	FOREIGN KEY (id_sensor) REFERENCES Dispositivos(id)
 );
+
+CREATE TABLE Sessao (
+	id BIGINT NOT NULL AUTO_INCREMENT,
+	id_usuario VARCHAR(30) NOT NULL,
+	token VARCHAR(200) NOT NULL,
+	funcionalidade VARCHAR(200),
+	data_expiracao DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY (id_usuario) REFERENCES Usuarios(id)
+	CONSTRAINT UC_Token UNIQUE (token, id_usuario)
+);

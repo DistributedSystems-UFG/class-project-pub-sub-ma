@@ -39,6 +39,11 @@ class SensorServiceStub(object):
                 request_serializer=SensorService__pb2.LedStatus.SerializeToString,
                 response_deserializer=SensorService__pb2.ListaLedStatus.FromString,
                 )
+        self.AutenticarUsuario = channel.unary_unary(
+                '/sensor_service.SensorService/AutenticarUsuario',
+                request_serializer=SensorService__pb2.ParamLogin.SerializeToString,
+                response_deserializer=SensorService__pb2.Sessao.FromString,
+                )
 
 
 class SensorServiceServicer(object):
@@ -74,6 +79,12 @@ class SensorServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AutenticarUsuario(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SensorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -101,6 +112,11 @@ def add_SensorServiceServicer_to_server(servicer, server):
                     servicer.ListarLeds,
                     request_deserializer=SensorService__pb2.LedStatus.FromString,
                     response_serializer=SensorService__pb2.ListaLedStatus.SerializeToString,
+            ),
+            'AutenticarUsuario': grpc.unary_unary_rpc_method_handler(
+                    servicer.AutenticarUsuario,
+                    request_deserializer=SensorService__pb2.ParamLogin.FromString,
+                    response_serializer=SensorService__pb2.Sessao.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -194,5 +210,22 @@ class SensorService(object):
         return grpc.experimental.unary_unary(request, target, '/sensor_service.SensorService/ListarLeds',
             SensorService__pb2.LedStatus.SerializeToString,
             SensorService__pb2.ListaLedStatus.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AutenticarUsuario(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/sensor_service.SensorService/AutenticarUsuario',
+            SensorService__pb2.ParamLogin.SerializeToString,
+            SensorService__pb2.Sessao.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

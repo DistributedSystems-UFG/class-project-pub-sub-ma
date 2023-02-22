@@ -4,11 +4,12 @@ from concurrent import futures
 import mariadb
 import sys
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import SensorService_pb2
 import SensorService_pb2_grpc
 from const import *
 import hashlib
+import uuid
 
 """
 Definição da mensagem ACIONAR LED (JSON):
@@ -16,6 +17,9 @@ Definição da mensagem ACIONAR LED (JSON):
     "nomeDispositivo": "",
     "localizacao": ""
 }
+
+Definição da string funcionalidade:
+funcao|localizacao|tipoDispositivo|nomeDispositivo|estado
 """
 
 class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
@@ -138,24 +142,40 @@ class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
         conn.close()
         return listaDispositivos
 
-    def is_authenticated(self, context):
-        # Recupera o cabeçalho de autenticação
-        auth_header = context.invocation_metadata()
-        
-        for key, value in auth_header:
-            if key.lower() == 'username':
-                usuario = value
-            if key.lower() == 'password':
-                senha = value
-        
+    def AutenticarUsuario(self, request, context):
+        usuario = request.usuario
+        senha = request.senha
+
         # Verifica se o usuário e a senha são válidos
         usuarioBanco, senhaBanco = consultarSenhaUsuarioPorNome(usuario)
         if usuarioBanco is not None:
             hash = hashlib.sha256(senha.encode()).hexdigest()
             if hash == senhaBanco:
                 self.usuario = usuarioBanco
-                return True
+                token, funcionalidade = gerarSessao(self.usuario.id)
+                if token is not None:
+                    sessao = SensorService_pb2.Sessao(token = token, funcionalidade = funcionalidade)
+                    return sessao
+
+        context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+        context.set_details('Invalid username or password')
+        return SensorService_pb2.ListaDispositivos()
+
+    def is_authenticated(context):
+         # Recupera o cabeçalho de autenticação
+        auth_header = context.invocation_metadata()
+        for key, value in auth_header:
+            if key.lower() == 'token':
+                token = value
+            if key.lower() == 'funcionalidade':
+                funcionalidade = value
         
+        tokenConsultado, funcionalidadeConsultada = consultarSessaoPeloToken(token)
+        if tokenConsultado is not None:
+            if not funcionalidadeConsultada == funcionalidade:
+               atualizarFuncionalidadeSessao(token, funcionalidade)
+            return True
+            
         return False
 
 def montarJoinCondicionalUsuario(nomeUsuario: str):
@@ -224,6 +244,67 @@ def getConnection():
         print(f"Erro ao se conectar ao banco: {e}")
         sys.exit(1)
 
-
 if __name__ == '__main__':
     serve()
+
+def gerarSessao(idUsuario):
+    sql = 'SELECT token, data_expiracao, funcionalidade FROM Sessao WHERE id_usuario = ?'
+    conn = getConnection()
+    cursor = conn.cursor()
+    cursor.execute(sql, (idUsuario,))
+    for token, dataExpiracao, funcionalidade in cursor:
+        if token is not None:
+            if isTokenValido(dataExpiracao):
+                return token, funcionalidade
+            else:
+                deletarSessaoExpirada(token)
+    conn.close()
+    return criarNovaSessao(idUsuario)
+
+def isTokenValido(dataExpiracao: str):
+    dataExpiracaoConvertida = datetime.strptime(dataExpiracao, '%d/%m/%Y %H:%M:%S')
+    dataAtual = datetime.now()
+    if dataAtual > dataExpiracaoConvertida:
+        return False
+    return True
+
+def deletarSessaoExpirada(token):
+    sql = 'DELETE FROM Sessao WHERE token = ?'
+    conn = getConnection()
+    cursor = conn.cursor()
+    cursor.execute(sql, (token,))
+    conn.commit()
+    conn.close()
+
+def criarNovaSessao(idUsuario):
+    token = uuid.uuid1()
+    dataAtual= datetime.now()
+    dataExpiracao = dataAtual + timedelta(days=2)
+    funcionalidade = 'ListarDispositivos'
+    sqlInsereNovaSessao = 'INSERT IGNORE INTO Sessao (token, id_usuario, funcionalidade, data_expiracao) VALUES (?, ?, ?, ?)'
+    conn = getConnection()
+    cursor = conn.cursor()
+    cursor.execute(sqlInsereNovaSessao, (token, idUsuario, funcionalidade, dataExpiracao,))
+    conn.commit()
+    conn.close()
+    return consultarSessaoPeloToken(token)
+
+def consultarSessaoPeloToken(token):
+    sql = 'SELECT token, data_expiracao, funcionalidade FROM Sessao WHERE token = ?'
+    conn = getConnection()
+    cursor = conn.cursor()
+    cursor.execute(sql, (token,))
+    for tokenConsultado, dataExpiracao, funcionalidade in cursor:
+        if token is not None:
+            if isTokenValido(dataExpiracao):
+                return tokenConsultado, funcionalidade
+    conn.close()
+    return None, None
+
+def atualizarFuncionalidadeSessao(token: str, funcionalidade: str):
+    sql = 'UPDATE Sessao SET funcionalidade = ? WHERE token = ?'
+    conn = getConnection()
+    cursor = conn.cursor()
+    cursor.execute(sql, (funcionalidade, token))
+    conn.commit()
+    conn.close()
