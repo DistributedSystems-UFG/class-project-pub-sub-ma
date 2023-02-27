@@ -63,6 +63,14 @@ class ListaLedStatus(_message.Message):
     status: _containers.RepeatedCompositeFieldContainer[LedStatus]
     def __init__(self, status: _Optional[_Iterable[_Union[LedStatus, _Mapping]]] = ...) -> None: ...
 
+class ParamLogin(_message.Message):
+    __slots__ = ["senha", "usuario"]
+    SENHA_FIELD_NUMBER: _ClassVar[int]
+    USUARIO_FIELD_NUMBER: _ClassVar[int]
+    senha: str
+    usuario: str
+    def __init__(self, usuario: _Optional[str] = ..., senha: _Optional[str] = ...) -> None: ...
+
 class Parametros(_message.Message):
     __slots__ = ["data", "localizacao", "nomeDispositivo"]
     DATA_FIELD_NUMBER: _ClassVar[int]
@@ -72,3 +80,11 @@ class Parametros(_message.Message):
     localizacao: str
     nomeDispositivo: str
     def __init__(self, localizacao: _Optional[str] = ..., data: _Optional[str] = ..., nomeDispositivo: _Optional[str] = ...) -> None: ...
+
+class Sessao(_message.Message):
+    __slots__ = ["funcionalidade", "token"]
+    FUNCIONALIDADE_FIELD_NUMBER: _ClassVar[int]
+    TOKEN_FIELD_NUMBER: _ClassVar[int]
+    funcionalidade: str
+    token: str
+    def __init__(self, token: _Optional[str] = ..., funcionalidade: _Optional[str] = ...) -> None: ...

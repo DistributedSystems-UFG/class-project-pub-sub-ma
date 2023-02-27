@@ -30,6 +30,8 @@ CREATE TABLE Usuarios (
 INSERT INTO Usuarios (usuario, senha, nome) VALUES ('ariel', '8a9f8cb0f26e12555e11a1683e5b4d5f5b25331afa8cc98c0c10def92790dcb8', 'Ariel Marte');
 --batata123
 INSERT INTO Usuarios (usuario, senha, nome) VALUES ('marco', '44e8e39e98069dd184fa75269329693d6c69326d276b2b7436b39f388dc3cce5', 'Marco');
+--ufg123
+INSERT INTO Usuarios (usuario, senha, nome) VALUES ('gustavo', 'cc3bae3976aa5948e6c62fe52088408f8ff337a991987f2e1c5bfa98851c374b', 'Gustavo');
 
 CREATE TABLE DispositivosUsuario(
 	id_usuario BIGINT NOT NULL,
@@ -50,6 +52,12 @@ INSERT INTO DispositivosUsuario VALUES (1, 9);
 INSERT INTO DispositivosUsuario VALUES (2, 7);
 INSERT INTO DispositivosUsuario VALUES (2, 8);
 INSERT INTO DispositivosUsuario VALUES (2, 9);
+INSERT INTO DispositivosUsuario VALUES (3, 4);
+INSERT INTO DispositivosUsuario VALUES (3, 5);
+INSERT INTO DispositivosUsuario VALUES (3, 6);
+INSERT INTO DispositivosUsuario VALUES (3, 7);
+INSERT INTO DispositivosUsuario VALUES (3, 8);
+INSERT INTO DispositivosUsuario VALUES (3, 9);
 
 CREATE TABLE DadosSensores (
 	id BIGINT NOT NULL AUTO_INCREMENT,
@@ -62,11 +70,11 @@ CREATE TABLE DadosSensores (
 
 CREATE TABLE Sessao (
 	id BIGINT NOT NULL AUTO_INCREMENT,
-	id_usuario VARCHAR(30) NOT NULL,
+	id_usuario BIGINT NOT NULL,
 	token VARCHAR(200) NOT NULL,
 	funcionalidade VARCHAR(200),
 	data_expiracao DATETIME NOT NULL,
 	PRIMARY KEY (id),
-	FOREIGN KEY (id_usuario) REFERENCES Usuarios(id)
+	FOREIGN KEY (id_usuario) REFERENCES Usuarios(id),
 	CONSTRAINT UC_Token UNIQUE (token, id_usuario)
 );

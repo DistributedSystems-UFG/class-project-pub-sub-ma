@@ -19,7 +19,7 @@ Definição da mensagem ACIONAR LED (JSON):
 }
 
 Definição da string funcionalidade:
-funcao|localizacao|tipoDispositivo|nomeDispositivo|estado
+funcao|localizacao|nomeDispositivo
 """
 
 class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
@@ -147,12 +147,12 @@ class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
         senha = request.senha
 
         # Verifica se o usuário e a senha são válidos
-        usuarioBanco, senhaBanco = consultarSenhaUsuarioPorNome(usuario)
+        id, usuarioBanco, senhaBanco = consultarSenhaUsuarioPorNome(usuario)
         if usuarioBanco is not None:
             hash = hashlib.sha256(senha.encode()).hexdigest()
             if hash == senhaBanco:
                 self.usuario = usuarioBanco
-                token, funcionalidade = gerarSessao(self.usuario.id)
+                token, funcionalidade, nome = gerarSessao(id)
                 if token is not None:
                     sessao = SensorService_pb2.Sessao(token = token, funcionalidade = funcionalidade)
                     return sessao
@@ -161,7 +161,7 @@ class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
         context.set_details('Invalid username or password')
         return SensorService_pb2.ListaDispositivos()
 
-    def is_authenticated(context):
+    def is_authenticated(self, context):
          # Recupera o cabeçalho de autenticação
         auth_header = context.invocation_metadata()
         for key, value in auth_header:
@@ -170,8 +170,9 @@ class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
             if key.lower() == 'funcionalidade':
                 funcionalidade = value
         
-        tokenConsultado, funcionalidadeConsultada = consultarSessaoPeloToken(token)
+        tokenConsultado, funcionalidadeConsultada, usuario = consultarSessaoPeloToken(token)
         if tokenConsultado is not None:
+            self.usuario = usuario
             if not funcionalidadeConsultada == funcionalidade:
                atualizarFuncionalidadeSessao(token, funcionalidade)
             return True
@@ -182,13 +183,13 @@ def montarJoinCondicionalUsuario(nomeUsuario: str):
     return ' INNER JOIN Usuarios U ON U.usuario = \'' + nomeUsuario + '\' INNER JOIN DispositivosUsuario DU on DU.id_usuario = U.id AND D.id = DU.id_dispositivo '
 
 def consultarSenhaUsuarioPorNome(nomeUsuario: str):
-    sql = 'SELECT usuario, senha FROM Usuarios WHERE usuario = ? '
+    sql = 'SELECT id, usuario, senha FROM Usuarios WHERE usuario = ? '
     conn = getConnection()
     cursor = conn.cursor()
     cursor.execute(sql, (nomeUsuario,))
-    for usuario, senha in cursor:
-        return usuario, senha
-    return None, None
+    for id, usuario, senha in cursor:
+        return id, usuario, senha
+    return None, None, None
 
 def montarMensagemAcionarLed(nomeDispositivo: str, localizacao: str):
     comando = {'nomeDispositivo': nomeDispositivo, 'localizacao': localizacao}
@@ -211,10 +212,14 @@ def requestParaCondicional(request):
     paramCond = []
     sqlCond = " L.nomeLocal = ? "
     paramCond.append(request.localizacao)
-    if 'data' in request.__dict__:
-        dataConvertida = datetime.strptime(request.data, '%d/%m/%Y')
-        sqlCond = sqlCond + (" AND " if sqlCond else "") + " date(DS.data) = ? "
-        paramCond.append(dataConvertida)
+    try:
+        if request.HasField('data'):
+            dataConvertida = datetime.strptime(request.data, '%d/%m/%Y')
+            sqlCond = sqlCond + (" AND " if sqlCond else "") + " date(DS.data) = ? "
+            paramCond.append(dataConvertida)
+    except Exception as e:
+        1==1
+    
     if request.HasField('nomeDispositivo'):
         sqlCond = sqlCond + (" AND " if sqlCond else "") + " D.nomeDispositivo = ? "
         paramCond.append(request.nomeDispositivo)
@@ -244,27 +249,25 @@ def getConnection():
         print(f"Erro ao se conectar ao banco: {e}")
         sys.exit(1)
 
-if __name__ == '__main__':
-    serve()
 
 def gerarSessao(idUsuario):
-    sql = 'SELECT token, data_expiracao, funcionalidade FROM Sessao WHERE id_usuario = ?'
+    sql = 'SELECT token, data_expiracao, funcionalidade, U.usuario FROM Sessao S INNER JOIN Usuarios U ON S.id_usuario = U.id WHERE id_usuario = ?'
     conn = getConnection()
     cursor = conn.cursor()
     cursor.execute(sql, (idUsuario,))
-    for token, dataExpiracao, funcionalidade in cursor:
+    for token, dataExpiracao, funcionalidade, usuario in cursor:
         if token is not None:
             if isTokenValido(dataExpiracao):
-                return token, funcionalidade
+                return token, funcionalidade, usuario
             else:
                 deletarSessaoExpirada(token)
     conn.close()
     return criarNovaSessao(idUsuario)
 
-def isTokenValido(dataExpiracao: str):
-    dataExpiracaoConvertida = datetime.strptime(dataExpiracao, '%d/%m/%Y %H:%M:%S')
+def isTokenValido(dataExpiracao):
+    #dataExpiracaoConvertida = datetime.strptime(dataExpiracao, '%d/%m/%Y %H:%M:%S')
     dataAtual = datetime.now()
-    if dataAtual > dataExpiracaoConvertida:
+    if dataAtual > dataExpiracao:
         return False
     return True
 
@@ -284,22 +287,22 @@ def criarNovaSessao(idUsuario):
     sqlInsereNovaSessao = 'INSERT IGNORE INTO Sessao (token, id_usuario, funcionalidade, data_expiracao) VALUES (?, ?, ?, ?)'
     conn = getConnection()
     cursor = conn.cursor()
-    cursor.execute(sqlInsereNovaSessao, (token, idUsuario, funcionalidade, dataExpiracao,))
+    cursor.execute(sqlInsereNovaSessao, (str(token), idUsuario, funcionalidade, dataExpiracao,))
     conn.commit()
     conn.close()
     return consultarSessaoPeloToken(token)
 
 def consultarSessaoPeloToken(token):
-    sql = 'SELECT token, data_expiracao, funcionalidade FROM Sessao WHERE token = ?'
+    sql = 'SELECT token, data_expiracao, funcionalidade, U.usuario FROM Sessao S INNER JOIN Usuarios U ON S.id_usuario = U.id WHERE token = ?'
     conn = getConnection()
     cursor = conn.cursor()
     cursor.execute(sql, (token,))
-    for tokenConsultado, dataExpiracao, funcionalidade in cursor:
+    for tokenConsultado, dataExpiracao, funcionalidade, usuario in cursor:
         if token is not None:
             if isTokenValido(dataExpiracao):
-                return tokenConsultado, funcionalidade
+                return tokenConsultado, funcionalidade, usuario
     conn.close()
-    return None, None
+    return None, None, None
 
 def atualizarFuncionalidadeSessao(token: str, funcionalidade: str):
     sql = 'UPDATE Sessao SET funcionalidade = ? WHERE token = ?'
@@ -308,3 +311,6 @@ def atualizarFuncionalidadeSessao(token: str, funcionalidade: str):
     cursor.execute(sql, (funcionalidade, token))
     conn.commit()
     conn.close()
+
+if __name__ == '__main__':
+    serve()
