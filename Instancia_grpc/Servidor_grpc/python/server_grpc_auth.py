@@ -240,7 +240,7 @@ def getConnection():
             password="root",
             host="localhost",
             port=3306,
-            database="sensor"
+            database="ubiquo"
 
         )
         
