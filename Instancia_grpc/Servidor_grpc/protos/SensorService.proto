@@ -21,6 +21,8 @@ service SensorService {
 
   rpc AutenticarUsuario (ParamLogin) returns (Sessao) {}
 
+  rpc ConsultarFuncionalidade (Sessao) returns (Sessao) {}
+
 }
 
 message Dispositivo {
@@ -72,5 +74,5 @@ message ParamLogin{
 
 message Sessao {
   string token = 1;
-  string funcionalidade = 2;
+  optional string funcionalidade = 2;
 }
