@@ -141,6 +141,16 @@ class SensorServer(SensorService_pb2_grpc.SensorServiceServicer):
             listaDispositivos.dispositivos.append(dispositivo)
         conn.close()
         return listaDispositivos
+    
+    def ConsultarFuncionalidade(self, request, context):
+        tokenConsultado, funcionalidadeConsultada, usuario = consultarSessaoPeloToken(request.token)
+        if tokenConsultado is None:
+            context.set_code(grpc.StatusCode.UNAUTHENTICATED)
+            context.set_details('Invalid username or password')
+            return SensorService_pb2.Sessao()
+        sessao = SensorService_pb2.Sessao(token = tokenConsultado, funcionalidade = funcionalidadeConsultada)
+
+        return sessao;
 
     def AutenticarUsuario(self, request, context):
         usuario = request.usuario
